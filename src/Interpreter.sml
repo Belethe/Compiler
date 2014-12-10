@@ -207,10 +207,10 @@ fun evalExp ( Constant (v,_), vtab, ftab ) = v
         end
 
   | evalExp ( Not(e1, pos), vtab, ftab) =
-        case evalExp(e1, vtab, ftab) of
+        (case evalExp(e1, vtab, ftab) of
             BoolVal b => BoolVal (not b)
-          | _ => raise Error("Tried to not a non-bool", pos)
-
+          | _         => raise Error("Tried to not a non-bool", pos)
+          )
 
   | evalExp ( Equal(e1, e2, pos), vtab, ftab ) =
         let val r1 = evalExp(e1, vtab, ftab)
@@ -223,7 +223,7 @@ fun evalExp ( Constant (v,_), vtab, ftab ) = v
         in case cond of
                 BoolVal false => BoolVal false
               | BoolVal true  => evalExp(e2, vtab, ftab)
-              _ => raise Error("Argument to && was not a boolean", pos)
+              | _             => raise Error("Argument to && was not a boolean", pos)
         end
 
   | evalExp ( Or(e1, e2, pos), vtab, ftab) =
@@ -496,7 +496,7 @@ takes a single argument - a list of arguments that should be applied
 to the function.  This allows us to evaluate a FunArg once, then call
 it several times in a loop.
  *)
-and evalFunArg (FunName fid, vtab, fab, callpos) =
+and evalFunArg (FunName fid, vtab, ftab, callpos) =
     let
       val fexp = SymTab.lookup fid ftab
     in
