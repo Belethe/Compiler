@@ -1,0 +1,8 @@
+fun int add (int a, int b) = a + b
+
+fun int writeInt(int a) = write(a)
+
+fun [int] main() =
+   let x = {}
+   let a = scan(add, 0, x) in
+   map(writeInt, a)

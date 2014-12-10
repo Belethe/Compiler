@@ -1,0 +1,6 @@
+fun int writeInt (int n) =
+   write(n)
+
+fun int main() =
+   let n = read(int) in
+   writeInt(n)

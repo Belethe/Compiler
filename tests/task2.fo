@@ -1,0 +1,25 @@
+fun int writeInt (int x) = write(x)
+
+fun [int] writeIntArr ([int] xs) = map(writeInt, xs)
+
+fun int plus(int x, int y) = x + y
+
+fun int sum ([int] arr) = reduce(plus, 0, arr)
+
+fun int plus3 (int x) = x + 3
+
+fun [int] makeRow (int x) = 
+   let k = read(int) in
+   map(plus3, iota(k))
+
+fun [int] main () =
+   let n = read(int) in
+   let x = map (makeRow, iota(n)) in
+   let y = map (sum, x) in
+   let p = read(int) in
+   //Lexeren fejler ved tegnene &&, så jeg har brugt to gange if-then-else
+   if 2 < p 
+   then (if p < n 
+         then writeIntArr(x[p]) 
+         else writeIntArr(y)) 
+   else writeIntArr(y)

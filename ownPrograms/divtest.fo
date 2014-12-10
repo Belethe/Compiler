@@ -1,0 +1,5 @@
+fun int main() = 
+//   let x = write(~9 / 3) in
+   let y = write(8/3) in
+   let z = write(10/3) in
+   0
