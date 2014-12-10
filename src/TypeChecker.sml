@@ -354,6 +354,12 @@ and checkFunArg (In.FunName fname, vtab, ftab, pos) =
     (case SymTab.lookup fname ftab of
          NONE             => raise Error ("Unknown identifier " ^ fname, pos)
        | SOME (ret_type, arg_types, _) => (Out.FunName fname, ret_type, arg_types))
+        (* TODO TASK 3:
+
+        Add case for In.Lambda.  This can be done by
+        constructing an appropriate In.FunDec and passing it to
+        checkFunWithVtable, then constructing an Out.Lambda from the
+        result. *)
   | checkFunArg (In.Lambda(tp ,params, body, fpos), vtab, ftab, pos) =
       let
         val (Out.FunDec(_, tp', params', body', fpos)) = 
@@ -362,12 +368,6 @@ and checkFunArg (In.FunName fname, vtab, ftab, pos) =
         in
             (Out.Lambda(tp', params', body', fpos), tp, arg_types)
        end
-        (* TODO TASK 3:
-
-        Add case for In.Lambda.  This can be done by
-        constructing an appropriate In.FunDec and passing it to
-        checkFunWithVtable, then constructing an Out.Lambda from the
-        result. *)
 
 (* Check a function declaration, but using a given vtable rather
 than an empty one. *)

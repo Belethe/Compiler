@@ -236,28 +236,6 @@ structure CodeGen = struct
             val code2 = compileExp e2 vtable t2
         in  code1 @ code2 @ [Mips.SUB (place,t1,t2)]
         end
-    | Times (e1, e2, pos) =>
-        let
-          val t1 = newName "minus_L"
-          val t2 = newName "minus_R"
-          val code1 = compileExp e1 vtable t1
-          val code2 = compileExp e2 vtable t2
-        in code1 @ code2 @ [Mips.MUL (place,t1,t2)]
-        end
-    | Divide (e1, e2, pos) =>
-        let
-          val t1 = newName "minus_L"
-          val t2 = newName "minus_R"
-          val code1 = compileExp e1 vtable t1
-          val code2 = compileExp e2 vtable t2
-        in code1 @ code2 @ [Mips.DIV (place,t1,t2)]
-        end
-    | Negate (e1, pos) =>
-        let
-          val t1 = newName "neg"
-          val code1 = compileExp e1 vtable t1
-        in code1 @ [ Mips.SUB(place, "0", t1) ]
-        end
     | Let (dec, e1, (line, col)) =>
         let val (code1, vtable1) = compileDec dec vtable
             val code2 = compileExp e1 vtable1 place
@@ -401,32 +379,6 @@ structure CodeGen = struct
         in  code1 @ code2 @
             [Mips.SLT (place,t1,t2)]
         end
-     | Not (e1, pos) =>
-         let
-           val t1 = newName "not"
-           val code = compileExp e1 vtable t1
-         in
-           code @ [ Mips.XORI (place, t1, "1")
-                  ]
-         end
-     | And (e1, e2, pos) =>
-         let 
-           val t1 = newName "and_L"
-           val t2 = newName "and_R"
-           val code1 = compileExp e1 vtable t1
-           val code2 = compileExp e2 vtable t2
-         in
-           code1 @ code2 @ [Mips.AND (place, t1, t2)]
-         end
-     | Or (e1, e2, pos) =>
-         let 
-           val t1 = newName "or_L"
-           val t2 = newName "or_R"
-           val code1 = compileExp e1 vtable t1
-           val code2 = compileExp e2 vtable t2
-         in
-           code1 @ code2 @ [Mips.OR (place, t1, t2)]
-         end
 
 (*********************************************************)
 (*** Indexing: 1. generate code to compute the index   ***)
@@ -618,75 +570,6 @@ structure CodeGen = struct
            @ loop_footer
         end
 
-        (* We are not sure this implementation is all that great. The function
-         * always allocates space enough for the "worst case" of every element 
-         * being returned. This seems wasteful. *)
-     | Filter (farg, arr_exp, tp, pos) =>
-        let 
-          val size_reg = newName "size_reg" (* size of input/output array *)
-          val arr_reg  = newName "arr_reg"  (* address of array *)
-          val elem_reg = newName "elem_reg" (* address of single element *)
-          val i_reg = newName "i_reg"       (* loop counter *)
-          val addr_reg = newName "addr_reg" (* address of element in new array *)
-          val res_reg = newName "res_reg"
-          val res_size_reg = newName "res_size_reg" (* Size of res *)
-          val loop_beg = newName "loop_beg"
-          val loop_end = newName "loop_end"
-          val tmp_reg = newName "tmp_reg"
-
-          val if_end = newName "if_end"
-
-          val arr_code = compileExp arr_exp vtable arr_reg
-
-          val get_size = [ Mips.LW (size_reg, arr_reg, "0") ]
-          
-          val init_regs = [ Mips.ADDI (addr_reg, place, "4")
-                          , Mips.MOVE (i_reg, "0")
-                          , Mips.ADDI (elem_reg, arr_reg, "4")
-                          , Mips.MOVE (res_size_reg, "0") ]
-
-          val loop_header = [ Mips.LABEL (loop_beg)
-                            , Mips.SUB (tmp_reg, i_reg, size_reg)
-                            , Mips.BGEZ (tmp_reg, loop_end) ]
-
-          val load_code =
-              case getElemSize tp of
-                  One => Mips.LB(res_reg, elem_reg, "0")
-                        :: applyFunArg(farg, [res_reg], vtable, tmp_reg, pos)
-                        @ [ Mips.ADDI(elem_reg, elem_reg, "1") ]
-                | Four => Mips.LW(res_reg, elem_reg, "0")
-                          :: applyFunArg(farg, [res_reg], vtable, tmp_reg, pos)
-                          @ [ Mips.ADDI(elem_reg, elem_reg, "4") ]
-
-          val if_code =
-            [ Mips.BEQ (tmp_reg, "0", if_end)
-            , Mips.ADDI (res_size_reg, res_size_reg, "1") ]
-              
-          val store_code = 
-            case getElemSize tp of
-                 One =>  [ Mips.SB   (res_reg, addr_reg, "0")
-                         , Mips.ADDI (addr_reg, addr_reg, "1") ]
-               | Four => [ Mips.SW   (res_reg, addr_reg, "0")
-                         , Mips.ADDI (addr_reg, addr_reg, "4") ]
-
-          val if_end_code =
-            [ Mips.LABEL(if_end)
-            , Mips.ADDI (i_reg, i_reg, "1")
-            , Mips.J (loop_beg)
-            , Mips.LABEL (loop_end)
-            , Mips.SW (res_size_reg, place, "0") ]
-
-        in
-          arr_code
-          @ get_size
-          @ dynalloc (size_reg, place, tp)
-          @ init_regs
-          @ loop_header
-          @ load_code
-          @ if_code
-          @ store_code
-          @ if_end_code
-        end
 
     (* reduce(f, acc, {x1, x2, ...}) = f(..., f(x2, f(x1, acc))) *)
     | Reduce (binop, acc_exp, arr_exp, tp, pos) =>
@@ -743,6 +626,55 @@ structure CodeGen = struct
   And and Or are short-circuiting - look at If to see how that could
   be handled (or your textbook).
    *)
+
+    | Times (e1, e2, pos) =>
+        let
+          val t1 = newName "minus_L"
+          val t2 = newName "minus_R"
+          val code1 = compileExp e1 vtable t1
+          val code2 = compileExp e2 vtable t2
+        in code1 @ code2 @ [Mips.MUL (place,t1,t2)]
+        end
+    | Divide (e1, e2, pos) =>
+        let
+          val t1 = newName "minus_L"
+          val t2 = newName "minus_R"
+          val code1 = compileExp e1 vtable t1
+          val code2 = compileExp e2 vtable t2
+        in code1 @ code2 @ [Mips.DIV (place,t1,t2)]
+        end
+    | Negate (e1, pos) =>
+        let
+          val t1 = newName "neg"
+          val code1 = compileExp e1 vtable t1
+        in code1 @ [ Mips.SUB(place, "0", t1) ]
+        end
+     | Not (e1, pos) =>
+         let
+           val t1 = newName "not"
+           val code = compileExp e1 vtable t1
+         in
+           code @ [ Mips.XORI (place, t1, "1")
+                  ]
+         end
+     | And (e1, e2, pos) =>
+         let 
+           val t1 = newName "and_L"
+           val t2 = newName "and_R"
+           val code1 = compileExp e1 vtable t1
+           val code2 = compileExp e2 vtable t2
+         in
+           code1 @ code2 @ [Mips.AND (place, t1, t2)]
+         end
+     | Or (e1, e2, pos) =>
+         let 
+           val t1 = newName "or_L"
+           val t2 = newName "or_R"
+           val code1 = compileExp e1 vtable t1
+           val code2 = compileExp e2 vtable t2
+         in
+           code1 @ code2 @ [Mips.OR (place, t1, t2)]
+         end
 
   (* TODO: TASK 2: Add case for Scan.
 
@@ -833,6 +765,75 @@ structure CodeGen = struct
      once you know how many elements that are actually left.  Do not worry
      about wasted space. *)
 
+        (* We are not sure this implementation is all that great. The function
+         * always allocates space enough for the "worst case" of every element 
+         * being returned. This seems wasteful. *)
+     | Filter (farg, arr_exp, tp, pos) =>
+        let 
+          val size_reg = newName "size_reg" (* size of input/output array *)
+          val arr_reg  = newName "arr_reg"  (* address of array *)
+          val elem_reg = newName "elem_reg" (* address of single element *)
+          val i_reg = newName "i_reg"       (* loop counter *)
+          val addr_reg = newName "addr_reg" (* address of element in new array *)
+          val res_reg = newName "res_reg"
+          val res_size_reg = newName "res_size_reg" (* Size of res *)
+          val loop_beg = newName "loop_beg"
+          val loop_end = newName "loop_end"
+          val tmp_reg = newName "tmp_reg"
+
+          val if_end = newName "if_end"
+
+          val arr_code = compileExp arr_exp vtable arr_reg
+
+          val get_size = [ Mips.LW (size_reg, arr_reg, "0") ]
+          
+          val init_regs = [ Mips.ADDI (addr_reg, place, "4")
+                          , Mips.MOVE (i_reg, "0")
+                          , Mips.ADDI (elem_reg, arr_reg, "4")
+                          , Mips.MOVE (res_size_reg, "0") ]
+
+          val loop_header = [ Mips.LABEL (loop_beg)
+                            , Mips.SUB (tmp_reg, i_reg, size_reg)
+                            , Mips.BGEZ (tmp_reg, loop_end) ]
+
+          val load_code =
+              case getElemSize tp of
+                  One => Mips.LB(res_reg, elem_reg, "0")
+                        :: applyFunArg(farg, [res_reg], vtable, tmp_reg, pos)
+                        @ [ Mips.ADDI(elem_reg, elem_reg, "1") ]
+                | Four => Mips.LW(res_reg, elem_reg, "0")
+                          :: applyFunArg(farg, [res_reg], vtable, tmp_reg, pos)
+                          @ [ Mips.ADDI(elem_reg, elem_reg, "4") ]
+
+          val if_code =
+            [ Mips.BEQ (tmp_reg, "0", if_end)
+            , Mips.ADDI (res_size_reg, res_size_reg, "1") ]
+              
+          val store_code = 
+            case getElemSize tp of
+                 One =>  [ Mips.SB   (res_reg, addr_reg, "0")
+                         , Mips.ADDI (addr_reg, addr_reg, "1") ]
+               | Four => [ Mips.SW   (res_reg, addr_reg, "0")
+                         , Mips.ADDI (addr_reg, addr_reg, "4") ]
+
+          val if_end_code =
+            [ Mips.LABEL(if_end)
+            , Mips.ADDI (i_reg, i_reg, "1")
+            , Mips.J (loop_beg)
+            , Mips.LABEL (loop_end)
+            , Mips.SW (res_size_reg, place, "0") ]
+
+        in
+          arr_code
+          @ get_size
+          @ dynalloc (size_reg, place, tp)
+          @ init_regs
+          @ loop_header
+          @ load_code
+          @ if_code
+          @ store_code
+          @ if_end_code
+        end
 
   (* TODO TASK 5: add case for ArrCompr.
 
@@ -842,18 +843,6 @@ structure CodeGen = struct
   and applyFunArg (FunName s, args, vtable, place, pos) : Mips.Prog =
       let val tmp_reg = newName "tmp_reg"
       in  applyRegs(s, args, tmp_reg, pos) @ [Mips.MOVE(place, tmp_reg)] end
-      (* Unfinished. How to bind arguments to parameters? Some sort of map? *)
-    | applyFunArg (Lambda (tp, params, body, fpos), args, vtable, place, pos) =
-      let
-        val tmp_reg = newName "tmp_reg"
-        val param_names = map (fn Param(s,_) => s) params
-        val bindings = SymTab.fromList (ListPair.zip (param_names, args))
-        val vtab_local = SymTab.combine bindings vtable
-        val lambdaBody = compileExp body vtab_local tmp_reg
-      in
-        (* Some code concatenation here *)
-        lambdaBody @ [ Mips.MOVE(place, tmp_reg) ]
-      end
 
      (* TODO TASK 3:
         Add case for Lambda.  This is very similar to how function
@@ -862,6 +851,16 @@ structure CodeGen = struct
         lambda, then finally move the result of the body to the
         'place' register.
       *)
+    | applyFunArg (Lambda (tp, params, body, fpos), args, vtable, place, pos) =
+      let
+        val tmp_reg = newName "tmp_reg"
+        val param_names = map (fn Param(s,_) => s) params
+        val bindings = SymTab.fromList (ListPair.zip (param_names, args))
+        val vtab_local = SymTab.combine bindings vtable
+        val lambdaBody = compileExp body vtab_local tmp_reg
+      in
+        lambdaBody @ [ Mips.MOVE(place, tmp_reg) ]
+      end
 
   (* compile condition *)
   and compileCond c vtable tlab flab =

@@ -176,11 +176,6 @@ fun evalExp ( Constant (v,_), vtab, ftab ) = v
            | SOME m => m
         end
 
-  | evalExp ( Negate (e1, pos), vtab, ftab ) =
-        (case evalExp(e1, vtab, ftab) of
-             IntVal n => IntVal (~n)
-           | _ => raise Error("Tried to negate a non-int", pos)
-        )
            
   | evalExp ( Plus(e1, e2, pos), vtab, ftab ) =
         let val res1   = evalExp(e1, vtab, ftab)
@@ -188,17 +183,6 @@ fun evalExp ( Constant (v,_), vtab, ftab ) = v
         in  evalBinopNum(op +, res1, res2, pos)
         end
 
-  | evalExp ( Times(e1, e2, pos), vtab, ftab ) =
-        let val res1   = evalExp(e1, vtab, ftab)
-            val res2   = evalExp(e2, vtab, ftab)
-        in  evalBinopNum(op *, res1, res2, pos)
-        end
-
-  | evalExp ( Divide(e1, e2, pos), vtab, ftab ) =
-        let val res1   = evalExp(e1, vtab, ftab)
-            val res2   = evalExp(e2, vtab, ftab)
-        in  evalBinopNum(Int.quot, res1, res2, pos)
-        end
 
   | evalExp ( Minus(e1, e2, pos), vtab, ftab ) =
         let val res1   = evalExp(e1, vtab, ftab)
@@ -206,11 +190,6 @@ fun evalExp ( Constant (v,_), vtab, ftab ) = v
         in  evalBinopNum(op -, res1, res2, pos)
         end
 
-  | evalExp ( Not(e1, pos), vtab, ftab) =
-        (case evalExp(e1, vtab, ftab) of
-            BoolVal b => BoolVal (not b)
-          | _         => raise Error("Tried to not a non-bool", pos)
-          )
 
   | evalExp ( Equal(e1, e2, pos), vtab, ftab ) =
         let val r1 = evalExp(e1, vtab, ftab)
@@ -218,20 +197,6 @@ fun evalExp ( Constant (v,_), vtab, ftab ) = v
         in evalEq(r1, r2, pos)
         end
 
-  | evalExp ( And(e1, e2, pos), vtab, ftab) =
-        let val cond = evalExp(e1, vtab, ftab)
-        in case cond of
-                BoolVal false => BoolVal false
-              | BoolVal true  => evalExp(e2, vtab, ftab)
-              | _             => raise Error("Argument to && was not a boolean", pos)
-        end
-
-  | evalExp ( Or(e1, e2, pos), vtab, ftab) =
-        let val cond = evalExp(e1, vtab, ftab)
-        in case cond of
-                BoolVal true  => BoolVal true
-              | BoolVal false => evalExp(e2, vtab, ftab)
-        end
 
   | evalExp ( Less(e1, e2, pos), vtab, ftab ) =
         let val r1 = evalExp(e1, vtab, ftab)
@@ -454,6 +419,45 @@ fun evalExp ( Constant (v,_), vtab, ftab ) = v
   how Plus and Minus are implemented for inspiration.
    *)
 
+  | evalExp ( Times(e1, e2, pos), vtab, ftab ) =
+        let val res1   = evalExp(e1, vtab, ftab)
+            val res2   = evalExp(e2, vtab, ftab)
+        in  evalBinopNum(op *, res1, res2, pos)
+        end
+
+  | evalExp ( Divide(e1, e2, pos), vtab, ftab ) =
+        let val res1   = evalExp(e1, vtab, ftab)
+            val res2   = evalExp(e2, vtab, ftab)
+        in  evalBinopNum(Int.quot, res1, res2, pos)
+        end
+
+  | evalExp ( Negate (e1, pos), vtab, ftab ) =
+        (case evalExp(e1, vtab, ftab) of
+             IntVal n => IntVal (~n)
+           | _ => raise Error("Tried to negate a non-int", pos)
+        )
+
+  | evalExp ( Not(e1, pos), vtab, ftab) =
+        (case evalExp(e1, vtab, ftab) of
+            BoolVal b => BoolVal (not b)
+          | _         => raise Error("Tried to not a non-bool", pos)
+          )
+
+  | evalExp ( And(e1, e2, pos), vtab, ftab) =
+        let val cond = evalExp(e1, vtab, ftab)
+        in case cond of
+                BoolVal false => BoolVal false
+              | BoolVal true  => evalExp(e2, vtab, ftab)
+              | _             => raise Error("Argument to && was not a boolean", pos)
+        end
+
+  | evalExp ( Or(e1, e2, pos), vtab, ftab) =
+        let val cond = evalExp(e1, vtab, ftab)
+        in case cond of
+                BoolVal true  => BoolVal true
+              | BoolVal false => evalExp(e2, vtab, ftab)
+        end
+
 (* Interpreter for Fasto function calls:
     1. f is the function declaration.
     2. args is a list of (already interpreted) arguments.
@@ -504,6 +508,12 @@ and evalFunArg (FunName fid, vtab, ftab, callpos) =
         NONE   => raise Error("Function "^fid^" is not in SymTab!", callpos)
       | SOME f => (fn aargs => callFun(f, aargs, ftab, callpos), getFunRTP f)
     end
+   (* TODO TASK 3:
+
+   Add case for Lambda.  This can be done by constructing an
+   appropriate FunDec from the lambda and passing it to
+   callFunWithVtable.
+    *)
   | evalFunArg (Lambda (tp, params, body, fpos), vtab, ftab, callpos) =
          (
           (fn aargs =>
@@ -511,21 +521,6 @@ and evalFunArg (FunName fid, vtab, ftab, callpos) =
                   FunDec("", tp, params, body, fpos), aargs, vtab, ftab,
                   callpos)),
            tp)
-   (* TODO TASK 3:
-
-   Add case for Lambda.  This can be done by constructing an
-   appropriate FunDec from the lambda and passing it to
-   callFunWithVtable.
-    *)
-    (*
-  | evalFunArg( Lambda (rettype, params, body, fpos), vtab, ftab, callpos ) =
-      (
-       (fn aargs => 
-          callFunWithVtable (
-             FunDec("Some name here", rettype, params, body, fpos), aargs, vtab,
-             ftab, callpos)), 
-       rettype)
-      *)
 
 (* Interpreter for Fasto programs:
     1. builds the function symbol table,
