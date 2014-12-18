@@ -21,12 +21,18 @@ _stop_:
 main:
 	sw	$31, -4($29)
 	addi	$29, $29, -8
-	ori	$2, $0, 1
-# was:	ori	_and_L_4_, 0, 1
 	ori	$3, $0, 1
-# was:	ori	_and_R_5_, 0, 1
-	and	$3, $2, $3
-# was:	and	_tmp_3_, _and_L_4_, _and_R_5_
+# was:	ori	_tmp_3_, 0, 1
+	beq	$3, $0, _end_loop_5_
+# was:	beq	_tmp_3_, 0, _end_loop_5_
+	ori	$3, $0, 1
+# was:	ori	_tmp_3_, 0, 1
+_end_loop_5_:
+	beq	$3, $0, _end_loop_4_
+# was:	beq	_tmp_3_, 0, _end_loop_4_
+	ori	$3, $0, 1
+# was:	ori	_tmp_3_, 0, 1
+_end_loop_4_:
 # 	ori	_letBind_2_,_tmp_3_,0
 	la	$2, _true
 # was:	la	2, _true
@@ -38,35 +44,61 @@ _wBoolF_6_:
 	jal	putstring
 # was:	jal	putstring, 2
 	ori	$3, $0, 0
-# was:	ori	_and_L_9_, 0, 0
-	ori	$2, $0, 1
-# was:	ori	_and_R_10_, 0, 1
-	and	$3, $3, $2
-# was:	and	_tmp_8_, _and_L_9_, _and_R_10_
+# was:	ori	_tmp_8_, 0, 0
+	beq	$3, $0, _end_loop_9_
+# was:	beq	_tmp_8_, 0, _end_loop_9_
+	ori	$3, $0, 1
+# was:	ori	_tmp_8_, 0, 1
+_end_loop_9_:
 # 	ori	_letBind_7_,_tmp_8_,0
 	la	$2, _true
 # was:	la	2, _true
-	bne	$3, $0, _wBoolF_11_
-# was:	bne	_letBind_7_, 0, _wBoolF_11_
+	bne	$3, $0, _wBoolF_10_
+# was:	bne	_letBind_7_, 0, _wBoolF_10_
 	la	$2, _false
 # was:	la	2, _false
-_wBoolF_11_:
+_wBoolF_10_:
 	jal	putstring
 # was:	jal	putstring, 2
-	ori	$2, $0, 1
-# was:	ori	_and_L_14_, 0, 1
+	ori	$3, $0, 1
+# was:	ori	_tmp_12_, 0, 1
+	beq	$3, $0, _end_loop_13_
+# was:	beq	_tmp_12_, 0, _end_loop_13_
 	ori	$3, $0, 0
-# was:	ori	_and_R_15_, 0, 0
-	and	$3, $2, $3
-# was:	and	_tmp_13_, _and_L_14_, _and_R_15_
-# 	ori	_letBind_12_,_tmp_13_,0
+# was:	ori	_tmp_12_, 0, 0
+_end_loop_13_:
+# 	ori	_letBind_11_,_tmp_12_,0
 	la	$2, _true
 # was:	la	2, _true
-	bne	$3, $0, _wBoolF_16_
-# was:	bne	_letBind_12_, 0, _wBoolF_16_
+	bne	$3, $0, _wBoolF_14_
+# was:	bne	_letBind_11_, 0, _wBoolF_14_
 	la	$2, _false
 # was:	la	2, _false
-_wBoolF_16_:
+_wBoolF_14_:
+	jal	putstring
+# was:	jal	putstring, 2
+	ori	$4, $0, 4
+# was:	ori	_eq_L_17_, 0, 4
+	ori	$3, $0, 2
+# was:	ori	_eq_R_18_, 0, 2
+	ori	$2, $0, 0
+# was:	ori	_not_16_, 0, 0
+	bne	$4, $3, _false_19_
+# was:	bne	_eq_L_17_, _eq_R_18_, _false_19_
+	ori	$2, $0, 1
+# was:	ori	_not_16_, 0, 1
+_false_19_:
+	xori	$3, $2, 1
+# was:	xori	_letBind_15_, _not_16_, 1
+# 	ori	_tmp_21_,_letBind_15_,0
+# 	ori	_letBind_20_,_tmp_21_,0
+	la	$2, _true
+# was:	la	2, _true
+	bne	$3, $0, _wBoolF_22_
+# was:	bne	_letBind_20_, 0, _wBoolF_22_
+	la	$2, _false
+# was:	la	2, _false
+_wBoolF_22_:
 	jal	putstring
 # was:	jal	putstring, 2
 	ori	$2, $0, 0

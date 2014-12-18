@@ -1,5 +1,7 @@
 fun int main() =
-   let x = write(true && true) in
+   let x = write(true && true && true) in
    let y = write(false && true) in
    let z = write(true && false) in
+   let q = not 4 == 2 in
+   let a = write(q) in
    0

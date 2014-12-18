@@ -1,4 +1,5 @@
 fun int main() =
    let x = write(not (false)) in
-   let y = write(not (true)) in  
+   let y = write(not (true)) in
+   let z = write(not 'a') in
    0

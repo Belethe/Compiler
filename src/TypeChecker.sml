@@ -266,9 +266,12 @@ and checkExp ftab vtab (exp : In.Exp)
          end
 
    | In.Negate (e1, pos)
-      => let val (_, e1_dec, _) = checkBinOp ftab vtab (pos, Int, e1, e1)
-         in (Int,
-             Out.Negate (e1_dec, pos))
+      => let val (t, e1_dec) = checkExp ftab vtab e1
+         in 
+           if t = Int
+           then (Int,
+                 Out.Negate (e1_dec, pos))
+           else raise Error ("Negate: Argument is not an int", pos)
          end
 
    | In.And (e1, e2, pos)
@@ -284,9 +287,13 @@ and checkExp ftab vtab (exp : In.Exp)
          end
 
    | In.Not (e1, pos)
-      => let val (_, e1_dec, _) = checkBinOp ftab vtab (pos, Bool, e1, e1)
-         in (Bool,
-             Out.Not (e1_dec, pos))
+      => let val (t, e_dec) = checkExp ftab vtab e1
+         in
+           if t = Bool
+           then
+             (t,
+              Out.Not (e_dec, pos))
+           else raise Error ("Not: Argument is not a bool", pos)
          end
 
 

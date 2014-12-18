@@ -17,55 +17,43 @@
 _stop_:
 	ori	$2, $0, 10
 	syscall
+# Function loop_forever
+loop_forever:
+	sw	$31, -4($29)
+	addi	$29, $29, -8
+	jal	loop_forever
+# was:	jal	loop_forever, 
+# 	ori	_loop_foreverres_1_,2,0
+# 	ori	2,_loop_foreverres_1_,0
+	addi	$29, $29, 8
+	lw	$31, -4($29)
+	jr	$31
 # Function main
 main:
 	sw	$31, -4($29)
 	addi	$29, $29, -8
-	ori	$2, $0, 0
-# was:	ori	_not_4_, 0, 0
-	xori	$3, $2, 1
-# was:	xori	_tmp_3_, _not_4_, 1
-# 	ori	_letBind_2_,_tmp_3_,0
+	ori	$3, $0, 1
+# was:	ori	_tmp_4_, 0, 1
+	bne	$3, $0, _end_loop_5_
+# was:	bne	_tmp_4_, 0, _end_loop_5_
+	jal	loop_forever
+# was:	jal	loop_forever, 
+	ori	$3, $2, 0
+# was:	ori	_tmp_4_, 2, 0
+_end_loop_5_:
+# 	ori	_letBind_3_,_tmp_4_,0
 	la	$2, _true
 # was:	la	2, _true
-	bne	$3, $0, _wBoolF_5_
-# was:	bne	_letBind_2_, 0, _wBoolF_5_
+	bne	$3, $0, _wBoolF_6_
+# was:	bne	_letBind_3_, 0, _wBoolF_6_
 	la	$2, _false
 # was:	la	2, _false
-_wBoolF_5_:
-	jal	putstring
-# was:	jal	putstring, 2
-	ori	$2, $0, 1
-# was:	ori	_not_8_, 0, 1
-	xori	$3, $2, 1
-# was:	xori	_tmp_7_, _not_8_, 1
-# 	ori	_letBind_6_,_tmp_7_,0
-	la	$2, _true
-# was:	la	2, _true
-	bne	$3, $0, _wBoolF_9_
-# was:	bne	_letBind_6_, 0, _wBoolF_9_
-	la	$2, _false
-# was:	la	2, _false
-_wBoolF_9_:
-	jal	putstring
-# was:	jal	putstring, 2
-	ori	$2, $0, 97
-# was:	ori	_not_12_, 0, 97
-	xori	$3, $2, 1
-# was:	xori	_tmp_11_, _not_12_, 1
-# 	ori	_letBind_10_,_tmp_11_,0
-	la	$2, _true
-# was:	la	2, _true
-	bne	$3, $0, _wBoolF_13_
-# was:	bne	_letBind_10_, 0, _wBoolF_13_
-	la	$2, _false
-# was:	la	2, _false
-_wBoolF_13_:
+_wBoolF_6_:
 	jal	putstring
 # was:	jal	putstring, 2
 	ori	$2, $0, 0
-# was:	ori	_mainres_1_, 0, 0
-# 	ori	2,_mainres_1_,0
+# was:	ori	_mainres_2_, 0, 0
+# 	ori	2,_mainres_2_,0
 	addi	$29, $29, 8
 	lw	$31, -4($29)
 	jr	$31

@@ -1,0 +1,6 @@
+fun bool loop_forever() =
+   loop_forever() 
+
+fun int main() =
+   let x = write (true || loop_forever()) in
+   0
