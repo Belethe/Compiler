@@ -193,15 +193,52 @@ First, code1 is evaluated. If it is false, we already have the answer and branch
 
 \section{Task 2}
 The first thing we needed to do was modify the lexer and parser. To the lexer we simply added two lines in the keyword function to match "scan" and "filter".
-To the parser we added the following two lines:
+To the parser we added the following two grammar rules:
 \begin{Verbatim}[frame=single]
+   | SCAN LPAR FunArg COMMA Exp COMMA Exp RPAR
+                     { Scan ($3, $5, $7, (), $1) }
+   | FILTER LPAR FunArg COMMA Exp RPAR
+                     { Filter ($3, $5, (), $1) }
+\end{Verbatim}
+%$
+Scan parses like reduce, since they take the same type of arguments. Filter looks a lot like map, for the same reason.\\
 
+To implement scan in the typechecker, we started with a copy of reduce, and modified it to the point where it would work for reduce. The difference between the functions is tiny. Scan is, if you only look at types, precisely like reduce, except it returns an array of things.
+
+\begin{Verbatim}[frame=single]
+	Error ("Scan: unexpected " ^ s ^ " type " ^ ppType t ^
+            ", expected " ^ ppType f_arg_type, pos)
+\end{Verbatim}
+
+This an example of where we practically just replaced 'reduce' with 'scan'. Here is the only significant change from Reduce to Scan: The return type is now an array.
+
+\begin{Verbatim}[frame=single]
+    then (arr_type,
+    	      Out.Scan (f', n_dec, arr_dec, elem_type, pos))
 \end{Verbatim}
 
 
+Then we implemented Filter into the typechecker and based the structure of it on Map. There are two changes from the case of Map. Firstly, Filter takes a predicate, and therefore the given function must have one argument and return a boolean. Secondly, Filter returns an array of the same type as array given as argument, where Map returns an array with elements of the return type of its passed function.
+
+The first change is where the function argument types are computed. Notice that we no longer care about the return type of the predicate, since we check it directly with the call to checkFunArg. 
 \begin{Verbatim}[frame=single]
+	val (f', _, f_arg_type) =
+        case checkFunArg (f, vtab, ftab, pos) of
+             (f', Bool, [a1]) => (f', Bool, a1)
+           | (_,  res, args)  =>
+                   raise Error ("Filter: incompatible
+                    function type of " ^ In.ppFunArg 0 f ^ ":" 
+                    ^ showFunType (args, res), pos)
 
 \end{Verbatim}
+The second change happens in the return type.
+\begin{Verbatim}[frame=single]
+	if elem_type = f_arg_type
+          then (Array elem_type,
+                Out.Filter (f', arr_exp_dec, elem_type, pos))
+          else raise Error (...)
+\end{Verbatim}
+That concludes the typechecking changes for both Filter and Scan.\\
 
 Filter is, as we've seen before, very similar to Map. That is also the case in code-generation. The implementation, like map, loops through the given array and places results in the newly allocated location.
 
@@ -209,7 +246,7 @@ The problem is, however, that we don't know the final size of the result array. 
 
 When choosing which elements to add to the result, we simply run the compiled predicate on the element. If it returns false, we jump to the end of the loop.
 
-The last problem is the size of the result array. In fasto, the first word contains an integer that stores the size of the array. Since we at the start don't know the size of the result, we must add it last. Therefore, in a seperate register, we store the size of the result array, starting at 0. This register is incremented every time an element is added to the result. At the end, the 'place' register points to the beginning of the array. We store the computed size in the address of 'place' and then we are done.
+The last problem is the size of the result array. In Fasto, the first word contains an integer that stores the size of the array. Since we at the start don't know the size of the result, we must add it last. Therefore, in a separate register, we store the size of the result array, starting at 0. This register is incremented every time an element is added to the result. At the end, the 'place' register points to the beginning of the array. We store the computed size in the address of 'place' and then we are done.
 
 \begin{Verbatim}[frame=single]
   | Filter (farg, arr_exp, tp, pos) =>
@@ -286,7 +323,6 @@ The loop is pretty straightforward. Load the next value from the array, apply th
         @ loop_footer
       end
 \end{Verbatim}
-
 
 \section{Task 3}
 \section{Task 4}
