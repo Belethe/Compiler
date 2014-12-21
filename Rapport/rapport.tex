@@ -56,7 +56,7 @@ We added two things to the mosmlyac parser specification in Parser.grm. First, w
 
 We then added rules for parsing the different operators. This was basically copying the grammar from the assignment. Ambiguities were already solved through the associativity and precedence declarations.
 
-Boolean values were parsed from the BOOLLIT token.
+Boolean values are parsed from the BOOLLIT token.
 
 \begin{Verbatim}[frame=single]
 
@@ -103,7 +103,7 @@ Not and negate are simply implemented using the SML not and "~".
           (case evalExp(e1, vtab, ftab) of
               BoolVal b => BoolVal (not b)
             | _         => raise Error("Tried to not a
-            							 non-boolean", pos)
+            				 non-boolean", pos)
             )
 \end{Verbatim}
 
@@ -145,8 +145,10 @@ The next step is  code generation. The first thing to do was to add support for 
 1 for true. The following 'Constant' patters were added in compileExp:
 
 \begin{Verbatim}[frame=single]
-      | Constant (BoolVal false, pos) => [ Mips.LI (place, makeConst 0) ] 
-      | Constant (BoolVal true, pos) => [Mips.LI (place, makeConst 1) ] 
+      | Constant (BoolVal false, pos) =>
+		[ Mips.LI (place, makeConst 0) ] 
+      | Constant (BoolVal true, pos) =>
+		[Mips.LI (place, makeConst 1) ] 
 \end{Verbatim}
 
 The code for the different is pretty similar. Compile the individual expressions and add a few lines of code that operate on the results. Times, for example just uses the Mips instruction mul to compute the result:
