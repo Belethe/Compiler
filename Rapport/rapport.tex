@@ -8,6 +8,8 @@
 \usepackage{array}
 \usepackage[center,font=small,labelfont=bf,textfont=it]{caption}
 \usepackage{fancyvrb}
+\renewcommand{\thesection}{}
+\renewcommand{\thesubsubsection}{}
 
 %\usepackage[titletoc,toc,title]{appendix}
 \begin{document}
@@ -19,7 +21,7 @@ Rasmus Friis}
 \maketitle
 \newpage
 \section{Task 1}
-
+\subsubsection{Lexer}
 First of all, we extended Lexer.lex with the required symbols. Every token carries the position along with it. Boolean values get their value along as well.
 
 \begin{Verbatim}[frame=single]
@@ -41,6 +43,7 @@ rule token = parse
  | "||"                { Parser.OR     (getPos lexbuf) }
 \end{Verbatim}
 
+\subsubsection{Parser}
 We added two things to the mosmlyac parser specification in Parser.grm. First, we defined associativity and precedence for the new operators. Logical operators have lower precedence than comparison and integer operators.
 
 \begin{Verbatim}[frame=single]
@@ -71,7 +74,10 @@ Boolean values are parsed from the BOOLLIT token.
  | NEGATE Exp          { Negate($2, $1)     }
 \end{Verbatim}
 
-Next came the interpreter changes. Times and Divide were easily implemented using almost the same code as Plus, simply changing "op+" to "op *" and "op/" in the call to evalBinOpNum. Here is the code for Times, Divide is similar.
+\subsubsection{Interpreter}
+Next came the interpreter changes. Times was easily implemented using almost the same code as Plus, simply changing "op +" to "op *" in the call to evalBinOpNum. As for Divide we used "int.quot" instead of "op /", as specified in the assignment.
+
+Here is the code for Times, Divide is similar.
 
 \begin{Verbatim}[frame=single]
     | evalExp ( Times(e1, e2, pos), vtab, ftab ) =
@@ -81,7 +87,7 @@ Next came the interpreter changes. Times and Divide were easily implemented usin
           end
 \end{Verbatim}
 
-And and Or is done short-circuiting by evaluating the first expression and then checking if we are ready to shirt-circuit. If we aren't, the evaluation continues with the second expression.
+And and Or is done short-circuiting by evaluating the first expression and then checking if we are ready to short-circuit. If we aren't, the evaluation continues with the second expression.
 
 This implementation doesn't use the build-in short-circuiting andalso and orelse in SML. It seems like this would be a more elegant solution, but we couldn't figure out a good way to do it.
 
@@ -96,7 +102,7 @@ This implementation doesn't use the build-in short-circuiting andalso and orelse
           end
 \end{Verbatim}
 
-Not and negate are simply implemented using the SML not and "~".
+Not and negate are simply implemented using the SML not and "$\sim$".
 
 \begin{Verbatim}[frame=single]
     | evalExp ( Not(e1, pos), vtab, ftab) =
@@ -107,6 +113,7 @@ Not and negate are simply implemented using the SML not and "~".
             )
 \end{Verbatim}
 
+\subsubsection{Typechecker}
 For the typechecker, the binary operators were again much the same as the implementation for 'Plus'. In this case, it included the logical operators as well. Times and And look very much like Plus:
 
 \begin{Verbatim}[frame=single]
@@ -141,6 +148,7 @@ Not and Negate only needs to check one parameter, so the implementation just cal
          end
 \end{Verbatim}
 
+\subsubsection{Code generation}
 The next step is  code generation. The first thing to do was to add support for boolean values. A reasonable representation seemed to be 0 for false and 
 1 for true. The following 'Constant' patters were added in compileExp:
 
@@ -151,7 +159,7 @@ The next step is  code generation. The first thing to do was to add support for 
 		[Mips.LI (place, makeConst 1) ] 
 \end{Verbatim}
 
-The code for the different is pretty similar. Compile the individual expressions and add a few lines of code that operate on the results. Times, for example just uses the Mips instruction mul to compute the result:
+The code for the different binary operators is pretty similar. We compile the individual expressions and add a few lines of code that operate on the results. Times, for example just uses the Mips instruction mul to compute the result:
 
 \begin{Verbatim}[frame=single]
       | Times (e1, e2, pos) =>
@@ -160,13 +168,14 @@ The code for the different is pretty similar. Compile the individual expressions
             val t2 = newName "times_R"
             val code1 = compileExp e1 vtable t1
             val code2 = compileExp e2 vtable t2
-          in code1 @ code2 @ [Mips.MUL (place,t1,t2)]
+          in
+            code1 @ code2 @ [Mips.MUL (place,t1,t2)]
           end
 \end{Verbatim}
 
 Divide looks the same, but uses div instead of mul to compute. Negate only has one expression to compile beforehand, but otherwise is the same. It is implemented by subtracting the result from 0.
 
-Not is a bit more interesting. The result is found by xor-ing the result by 1. If the expression compiled to true, it would be $1 xor 1 = 0$ and if it was false it would get $0 xor 1 = 1$.
+Not is a bit more interesting. The result is found by xor-ing the result by 1. If the expression compils to true, it will be 1 xor 1 = 0 and if it is false it will be 0 xor 1 = 1.
 
 \begin{Verbatim}[frame=single]
        | Not (e1, pos) =>
@@ -194,7 +203,7 @@ The logical operators And and Or needed to be short-circuiting. For And, the cod
 First, code1 is evaluated. If it is false, we already have the answer and branch out. Note that the result is already in place, so we don't need to move it. code2 is then evaluated, and it's result is put in place. Whatever it evaluates to will be the result. Or is implemented the same way, but it branches if code1 returns true.
 
 \section{Task 2}
-The first thing we needed to do was modify the lexer and parser. To the lexer we simply added two lines in the keyword function to match "scan" and "filter".
+The first thing we needed to do, was modify the lexer and parser. To the lexer we simply added two lines in the keyword function to match "scan" and "filter".
 To the parser we added the following two grammar rules:
 \begin{Verbatim}[frame=single]
    | SCAN LPAR FunArg COMMA Exp COMMA Exp RPAR
@@ -203,16 +212,9 @@ To the parser we added the following two grammar rules:
                      { Filter ($3, $5, (), $1) }
 \end{Verbatim}
 %$
-Scan parses like reduce, since they take the same type of arguments. Filter looks a lot like map, for the same reason.\\
+Scan parses like reduce, since they take the same type of arguments. Filter looks a lot like Map, for the same reason.\\
 
-To implement scan in the typechecker, we started with a copy of reduce, and modified it to the point where it would work for reduce. The difference between the functions is tiny. Scan is, if you only look at types, precisely like reduce, except it returns an array of things.
-
-\begin{Verbatim}[frame=single]
-	Error ("Scan: unexpected " ^ s ^ " type " ^ ppType t ^
-            ", expected " ^ ppType f_arg_type, pos)
-\end{Verbatim}
-
-This an example of where we practically just replaced 'reduce' with 'scan'. Here is the only significant change from Reduce to Scan: The return type is now an array.
+To implement Scan in the typechecker, we started with a copy of Reduce, and modified it to the point where it would work for Scan. The difference between the functions is tiny. Scan is, if you only look at types, precisely like Reduce, except it returns an array of things, as seen in the following code, which shows the only significant change between the two.
 
 \begin{Verbatim}[frame=single]
     then (arr_type,
