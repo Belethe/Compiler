@@ -327,6 +327,62 @@ The loop is pretty straightforward. Load the next value from the array, apply th
 \end{Verbatim}
 
 \section{Task 3}
+The first part to implementing Lambda-expressions was to modify the lexer specification. "fn" was added to the 'keyword' helper function, and the pattern "=>" was added as a pattern.
+
+We modified the parser specification to parse Lambdas. In Fasto, they are only ever used inside the pre-defined higher-order functions, parsed with the FunArg nonterminal. Therefore we add the rule for parsing Lambdas inside that nonterminal.
+\begin{Verbatim}[frame=single]
+  FunArg : ID { FunName (#1 $1) }
+         | FN Type LPAR Params RPAR RARROW Exp { Lambda ($2, $4, $7, $1) }
+  ;
+\end{Verbatim}
+%$
+
+When figuring out how to implement Lambdas in the interpreter, we looked at the already defined case of evalFunArg. We could see that the return type had to be a function that matched actual arguments into a call to callFunWithVtable. The arguments to that function had to be some FunDec, along with a vtab and ftab.
+
+Our strategy then simply is to use the components of the Lambda to build a dummy FunDec and passing it into callFunWithVtable in a similar way.
+
+\begin{Verbatim}[frame=single]
+    | evalFunArg (Lambda (tp, params, body, fpos), vtab, ftab, callpos) =
+           (
+            (fn aargs =>
+                 callFunWithVtable (
+                    FunDec("", tp, params, body, fpos), aargs, vtab, ftab,
+                    callpos)),
+             tp)
+\end{Verbatim}
+
+In the typechecker, the strategy is actually very similar. Here instead we use checkFunWithVtable, but we still construct the dummy FunDec. We compute the argument types by extracting it from Params.
+
+\begin{Verbatim}[frame=single]
+    | checkFunArg (In.Lambda(tp ,params, body, fpos), vtab, ftab, pos) =
+        let 
+          val (Out.FunDec(_, tp', params', body', fpos)) = 
+              checkFunWithVtable (In.FunDec ("", tp, params, body, fpos), vtab, ftab, pos)
+          val arg_types = map (fn Param(_,t) => t) params
+          in
+              (Out.Lambda(tp', params', body', fpos), tp, arg_types)
+         end
+\end{Verbatim}
+
+Code generation for Lambdas use a different idea. Since an anonymous function is only ever used where it is defined, we can just compile the body in place and use it as is.
+
+\begin{Verbatim}[frame=single]
+      | applyFunArg (Lambda (tp, params, body, fpos), args, vtable, place, pos) =
+        let  
+          val tmp_reg = newName "tmp_reg"
+          val param_names = map (fn Param(s,_) => s) params
+          val bindings = SymTab.fromList (ListPair.zip (param_names, args))
+          val vtab_local = SymTab.combine bindings vtable
+          val lambdaBody = compileExp body vtab_local tmp_reg
+        in   
+          lambdaBody @ [ Mips.MOVE(place, tmp_reg) ]
+        end
+\end{Verbatim}
+
+In the code above, we first extract parameter names from the definition and bind them to the given arguments. Then we make a new, local value table with the bindings added. Using this table we compile the body of the expression. Lastly, we move the result into 'place'.
+
+$\hbar$
+
 \section{Task 4}
 
 \begin{Verbatim}[frame=single]
