@@ -98,7 +98,7 @@ fun copyConstPropFoldExp vtable e =
             val vtable' = (case e' of
                                 Constant (v, _) => SymTab.bind name (ConstProp v) vtable
                               | Var (n, _) => SymTab.bind name (VarProp n) vtable
-                              | _          => vtable
+                              | _          => SymTab.remove name vtable
                               )
         in Let (Dec (name, e', decpos),
                 copyConstPropFoldExp vtable' body,

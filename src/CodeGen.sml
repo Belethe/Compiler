@@ -769,9 +769,6 @@ structure CodeGen = struct
      once you know how many elements that are actually left.  Do not worry
      about wasted space. *)
 
-        (* We are not sure this implementation is all that great. The function
-         * always allocates space enough for the "worst case" of every element 
-         * being returned. This seems wasteful. *)
      | Filter (farg, arr_exp, tp, pos) =>
         let 
           val size_reg = newName "size_reg" (* size of input/output array *)
