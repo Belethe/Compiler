@@ -123,7 +123,6 @@ For the typechecker, the binary operators were again much the same as the implem
            in (Bool,
                Out.And (e1_dec, e2_dec, pos))
            end
-
 \end{Verbatim}
 
 The implementation of 'times' is barely different, while And has the Int types replaced with Bool. 
@@ -173,8 +172,7 @@ Not is a bit more interesting. The result is found by xor-ing the result by 1. I
              val t1 = newName "not"
              val code = compileExp e1 vtable t1
            in
-             code @ [ Mips.XORI (place, t1, "1")
-                    ]
+             code @ [ Mips.XORI (place, t1, "1") ]
            end
 \end{Verbatim}
 
@@ -194,78 +192,101 @@ The logical operators And and Or needed to be short-circuiting. For And, the cod
 First, code1 is evaluated. If it is false, we already have the answer and branch out. Note that the result is already in place, so we don't need to move it. code2 is then evaluated, and it's result is put in place. Whatever it evaluates to will be the result. Or is implemented the same way, but it branches if code1 returns true.
 
 \section{Task 2}
+The first thing we needed to do was modify the lexer and parser. To the lexer we simply added two lines in the keyword function to match "scan" and "filter".
+To the parser we added the following two lines:
 \begin{Verbatim}[frame=single]
-      | Scan (binop, acc_exp, arr_exp, tp, pos) =>
-          let
-			(* Name definitions *)
-			(...)
-  
-            (* Compile array code *)
-            val arr_code = compileExp arr_exp vtable arr_reg
-            val header1 = [ Mips.LW (size_reg, arr_reg, "0")
-                          , Mips.ADDI (size_reg, size_reg, "1") ]
-  
-            (* Compile initial value of acc, place into acc_reg *)
-            val acc_code = compileExp acc_exp vtable acc_reg
-  
-            (* Make regs point to first element in arrays, i_reg = 0 *)
-            val init_regs =
-              [ Mips.ADDI (arr_reg, arr_reg, "4")
-              , Mips.MOVE (i_reg, "0")
-              , Mips.ADDI (addr_reg, place, "4")
-              ]
-  
-  
-            (* loop code *)
-            val loop_header =
-              [ Mips.LABEL(loop_beg)
-              , Mips.SUB(tmp_reg, i_reg, size_reg)
-              , Mips.BGEZ(tmp_reg, loop_end)
-              ]
-  
-            (* Load arr[i] into tmp_reg *)
-            val load_code =
-                  case getElemSize tp of
-                      One =>  [ Mips.LB   (tmp_reg, arr_reg, "0")
-                              , Mips.ADDI (arr_reg, arr_reg, "1") ]
-                    | Four => [ Mips.LW   (tmp_reg, arr_reg, "0")
-                              , Mips.ADDI (arr_reg, arr_reg, "4") ]
-  
-            (* place := binop(tmp_reg, place) *)
-            val apply_code =
-                  applyFunArg(binop, [acc_reg, tmp_reg], vtable, acc_reg, pos)
-  
-            (* Load arr[i] into tmp_reg *)
-            val store_code =
-                  case getElemSize tp of
-                      One =>  [ Mips.SB   (acc_reg, addr_reg, "0")
-                              , Mips.ADDI (addr_reg, addr_reg, "1") ]
-                    | Four => [ Mips.SW   (acc_reg, addr_reg, "0")
-                              , Mips.ADDI (addr_reg, addr_reg, "4") ]
-            val loop_footer =
-              [ Mips.ADDI (i_reg, i_reg, "1")
-              , Mips.J (loop_beg)
-              , Mips.LABEL (loop_end)
-              ]
-          in
-            arr_code
-            @ header1
-            @ acc_code
-            @ dynalloc(size_reg, place, tp)
-            @ init_regs
-            @ store_code
-            @ loop_header
-            @ load_code
-            @ apply_code
-            @ store_code
-            @ loop_footer
-          end
 
 \end{Verbatim}
+
 
 \begin{Verbatim}[frame=single]
 
 \end{Verbatim}
+
+Filter is, as we've seen before, very similar to Map. That is also the case in code-generation. The implementation, like map, loops through the given array and places results in the newly allocated location.
+
+The problem is, however, that we don't know the final size of the result array. Therefore, we allocate for the worst case, being that every element is copied over. This means we will in most cases have some wasted space.
+
+When choosing which elements to add to the result, we simply run the compiled predicate on the element. If it returns false, we jump to the end of the loop.
+
+The last problem is the size of the result array. In fasto, the first word contains an integer that stores the size of the array. Since we at the start don't know the size of the result, we must add it last. Therefore, in a seperate register, we store the size of the result array, starting at 0. This register is incremented every time an element is added to the result. At the end, the 'place' register points to the beginning of the array. We store the computed size in the address of 'place' and then we are done.
+
+\begin{Verbatim}[frame=single]
+  | Filter (farg, arr_exp, tp, pos) =>
+    let
+      (... Name definitions ...)
+      val arr_code = compileExp arr_exp vtable arr_reg
+      val get_size = [ Mips.LW (size_reg, arr_reg, "0") ]
+      val init_regs = (... Initialize size and 
+      		address for registers ...)
+      val loop_header = [ Mips.LABEL (loop_beg)
+                        , Mips.SUB (tmp_reg, i_reg, size_reg)
+                        , Mips.BGEZ (tmp_reg, loop_end) ]
+  
+      val load_code = (...)
+  
+      val if_code =
+        [ Mips.BEQ (tmp_reg, "0", if_end)
+        , Mips.ADDI (res_size_reg, res_size_reg, "1") ]
+  
+      val store_code = (..)
+      			  
+      val if_end_code =
+        [ Mips.LABEL(if_end)
+        , Mips.ADDI (i_reg, i_reg, "1")
+        , Mips.J (loop_beg)
+        , Mips.LABEL (loop_end) ]
+    in
+      arr_code
+      @ get_size @ dynalloc (size_reg, place, tp) @ init_regs
+      @ loop_header @ load_code @ if_code @ store_code
+      @ if_end_code @ [ Mips.SW (res_size_reg, place, "0") ]
+    end
+\end{Verbatim}
+
+We implemented scan in a way that was very similar to the existing implementation of reduce, but with some added elements from map. From reduce we took the code that accumulated a value in a register and from map we took the code that saved the results in a new array.
+
+The size of the return array is the size of the given array plus one, for the original accumulator value.
+
+The loop is pretty straightforward. Load the next value from the array, apply the binary function, save the result in the accumulator and save that accumulator in the return array. Move all appropriate pointers forward and repeat. Like map
+
+\begin{Verbatim}[frame=single]
+  | Scan (binop, acc_exp, arr_exp, tp, pos) =>
+      let
+        (... Name definitions ...)
+        (... Compile expressions, save array registers, 
+        save target address ...)
+
+        (* loop code *)
+        val loop_header =
+          [ Mips.LABEL(loop_beg)
+          , Mips.SUB(tmp_reg, i_reg, size_reg)
+          , Mips.BGEZ(tmp_reg, loop_end) ]
+  
+        (* Load arr[i] into tmp_reg *)
+        val load_code = (...)
+  
+        val apply_code =
+              applyFunArg(binop, [acc_reg, tmp_reg], 
+              		vtable, acc_reg, pos)
+  
+        (* Store acc in addr_reg, increment addr_reg *)
+        val store_code = (...)
+              
+        val loop_footer =
+          [ Mips.ADDI (i_reg, i_reg, "1")
+          , Mips.J (loop_beg)
+          , Mips.LABEL (loop_end)  ]
+      in
+        arr_code @ header1 @ acc_code
+        @ dynalloc(size_reg, place, tp)
+        @ init_regs
+        @ store_code (* Save first elem *)
+        @ loop_header @ load_code @ apply_code @ store_code 
+        @ loop_footer
+      end
+\end{Verbatim}
+
 
 \section{Task 3}
 \section{Task 4}
